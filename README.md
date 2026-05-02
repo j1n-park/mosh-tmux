@@ -2,6 +2,12 @@
 
 Shareable tmux configuration and a `mosh-tmux` zsh helper.
 
+## Requirements
+
+- `tmux` 3.2 or newer for the bundled status-line formatting.
+- `mosh` and `zsh` for the optional `mosh-tmux` helper.
+- `ssh`/`scp` when installing on a remote machine.
+
 ## Files
 
 - `.tmux.conf`: tmux settings and status bar style.
@@ -47,4 +53,16 @@ Use a named session:
 
 ```sh
 mosh-tmux -s work user@host
+```
+
+Pass extra tmux arguments after the host, for example to start in a directory:
+
+```sh
+mosh-tmux -s work user@host -c ~/src
+```
+
+Show the helper usage:
+
+```sh
+mosh-tmux --help
 ```
