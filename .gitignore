@@ -1,0 +1,12 @@
+# Local install backups
+.tmux.conf.bak.*
+.mosh-tmux.zsh.bak.*
+
+# Temporary files created during interrupted remote installs
+.tmux.conf.mosh-tmux-install.*
+.mosh-tmux.zsh.mosh-tmux-install.*
+
+# Editor and OS noise
+*.swp
+*.swo
+.DS_Store
