@@ -4,51 +4,88 @@ set -eu
 usage() {
   cat <<'EOF'
 usage:
-  ./install.sh                  Install .tmux.conf locally
-  ./install.sh user@host         Install .tmux.conf on a remote machine over SSH
+  ./install.sh [--helper]         Install .tmux.conf locally
+  ./install.sh [--helper] user@host
+                                  Install files on a remote machine over SSH
 
 options:
-  -h, --help                     Show this help
+  --helper                        Also install mosh-tmux.zsh
+  -h, --help                      Show this help
 
-The installer backs up an existing ~/.tmux.conf before replacing it.
+The installer backs up existing target files before replacing them.
 EOF
 }
 
-case "${1:-}" in
-  -h|--help)
-    usage
-    exit 0
-    ;;
-esac
+install_helper=false
+target=""
 
-if [ "$#" -gt 1 ]; then
-  echo "error: expected at most one target" >&2
-  usage >&2
-  exit 2
-fi
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --helper)
+      install_helper=true
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -*)
+      echo "error: unknown option: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+    *)
+      if [ -n "$target" ]; then
+        echo "error: expected at most one target" >&2
+        usage >&2
+        exit 2
+      fi
+      target="$1"
+      shift
+      ;;
+  esac
+done
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 source_conf="$script_dir/.tmux.conf"
-target="${1:-}"
+helper_file="$script_dir/mosh-tmux.zsh"
 
 if [ ! -f "$source_conf" ]; then
   echo "error: missing $source_conf" >&2
   exit 1
 fi
 
+if [ "$install_helper" = "true" ] && [ ! -f "$helper_file" ]; then
+  echo "error: missing $helper_file" >&2
+  exit 1
+fi
+
 timestamp=$(date +%Y%m%d-%H%M%S)
 
-if [ -z "$target" ]; then
-  backup_conf="$HOME/.tmux.conf.bak.$timestamp"
+install_local_file() {
+  src=$1
+  dest=$2
+  mode=$3
+  label=$4
 
-  if [ -f "$HOME/.tmux.conf" ]; then
-    cp "$HOME/.tmux.conf" "$backup_conf"
-    echo "backed up ~/.tmux.conf to $backup_conf"
+  if [ -f "$dest" ]; then
+    backup_file="$dest.bak.$timestamp"
+    cp "$dest" "$backup_file"
+    echo "backed up $dest to $backup_file"
   fi
 
-  cp "$source_conf" "$HOME/.tmux.conf"
-  chmod 0644 "$HOME/.tmux.conf"
-  echo "installed .tmux.conf locally"
+  cp "$src" "$dest"
+  chmod "$mode" "$dest"
+  echo "installed $label locally"
+}
+
+if [ -z "$target" ]; then
+  install_local_file "$source_conf" "$HOME/.tmux.conf" 0644 ".tmux.conf"
+
+  if [ "$install_helper" = "true" ]; then
+    install_local_file "$helper_file" "$HOME/.mosh-tmux.zsh" 0644 "mosh-tmux helper"
+  fi
+
   exit 0
 fi
 
@@ -59,25 +96,50 @@ for cmd in scp ssh; do
   fi
 done
 
-remote_tmp=".tmux.conf.mosh-tmux-install.$$.$timestamp"
+remote_conf_tmp=".tmux.conf.mosh-tmux-install.$$.$timestamp"
+remote_helper_tmp=".mosh-tmux.zsh.mosh-tmux-install.$$.$timestamp"
 
-scp "$source_conf" "$target:$remote_tmp"
+scp "$source_conf" "$target:$remote_conf_tmp"
+if [ "$install_helper" = "true" ]; then
+  scp "$helper_file" "$target:$remote_helper_tmp"
+fi
+
 ssh "$target" "set -eu
+  install_helper=\"$install_helper\"
   remote_conf=\"\$HOME/.tmux.conf\"
-  remote_backup=\"\$HOME/.tmux.conf.bak.$timestamp\"
-  remote_tmp=\"\$HOME/$remote_tmp\"
+  remote_conf_tmp=\"\$HOME/$remote_conf_tmp\"
+  remote_helper=\"\$HOME/.mosh-tmux.zsh\"
+  remote_helper_tmp=\"\$HOME/$remote_helper_tmp\"
 
-  if [ -f \"\$remote_conf\" ]; then
-    cp \"\$remote_conf\" \"\$remote_backup\"
-    echo \"backed up ~/.tmux.conf to \$remote_backup\"
+  cleanup() {
+    rm -f \"\$remote_conf_tmp\" \"\$remote_helper_tmp\"
+  }
+  trap cleanup EXIT HUP INT TERM
+
+  install_remote_file() {
+    src=\$1
+    dest=\$2
+    mode=\$3
+    label=\$4
+
+    if [ -f \"\$dest\" ]; then
+      backup_file=\"\$dest.bak.$timestamp\"
+      cp \"\$dest\" \"\$backup_file\"
+      echo \"backed up \$dest to \$backup_file\"
+    fi
+
+    mv \"\$src\" \"\$dest\"
+    chmod \"\$mode\" \"\$dest\"
+    echo \"installed \$label on $target\"
+  }
+
+  install_remote_file \"\$remote_conf_tmp\" \"\$remote_conf\" 0644 .tmux.conf
+
+  if [ \"\$install_helper\" = \"true\" ]; then
+    install_remote_file \"\$remote_helper_tmp\" \"\$remote_helper\" 0644 \"mosh-tmux helper\"
   fi
-
-  mv \"\$remote_tmp\" \"\$remote_conf\"
-  chmod 0644 \"\$remote_conf\"
 
   if command -v tmux >/dev/null 2>&1 && [ -n \"\${TMUX:-}\" ]; then
     tmux source-file \"\$remote_conf\"
   fi
-
-  echo \"installed .tmux.conf on $target\"
 "
