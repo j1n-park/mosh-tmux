@@ -16,8 +16,7 @@ Shareable tmux configuration and a `mosh-tmux` zsh helper.
 ## Install locally
 
 ```sh
-./install.sh
-cp mosh-tmux.zsh ~/.mosh-tmux.zsh
+./install.sh --helper
 printf '\n[ -f "$HOME/.mosh-tmux.zsh" ] && source "$HOME/.mosh-tmux.zsh"\n' >> ~/.zshrc
 ```
 
@@ -39,7 +38,7 @@ The installer copies `.tmux.conf` over SSH and backs up any existing remote
 If you also want the `mosh-tmux` helper on the remote machine:
 
 ```sh
-scp mosh-tmux.zsh user@host:.mosh-tmux.zsh
+./install.sh --helper user@host
 ssh user@host 'printf "\n[ -f \"\$HOME/.mosh-tmux.zsh\" ] && source \"\$HOME/.mosh-tmux.zsh\"\n" >> ~/.zshrc'
 ```
 
