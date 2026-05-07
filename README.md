@@ -54,6 +54,9 @@ Use a named session:
 mosh-tmux -s work user@host
 ```
 
+Session names must not contain `:` because tmux uses that character as a target
+separator.
+
 Pass extra tmux arguments after the host, for example to start in a directory:
 
 ```sh

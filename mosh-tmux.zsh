@@ -20,6 +20,11 @@ mosh-tmux() {
     shift 2
   fi
 
+  if [[ "$session" == *:* ]]; then
+    print -u2 "error: session name must not contain ':'"
+    return 2
+  fi
+
   if [[ -z "${1:-}" ]]; then
     print -u2 "usage: mosh-tmux [-s session] user@host [tmux args...]"
     return 2
