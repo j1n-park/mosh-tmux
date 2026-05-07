@@ -130,7 +130,7 @@ ssh "$target" "set -eu
 
     mv \"\$src\" \"\$dest\"
     chmod \"\$mode\" \"\$dest\"
-    echo \"installed \$label on $target\"
+    echo \"installed \$label remotely\"
   }
 
   install_remote_file \"\$remote_conf_tmp\" \"\$remote_conf\" 0644 .tmux.conf
