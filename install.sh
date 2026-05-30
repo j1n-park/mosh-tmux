@@ -9,18 +9,24 @@ usage:
 
 options:
   -h, --help                      Show this help
+  --no-backup                     Replace existing files without creating backups
 
-The installer backs up existing target files before replacing them.
+By default, the installer backs up existing target files before replacing them.
 EOF
 }
 
 target=""
+no_backup=0
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     -h|--help)
       usage
       exit 0
+      ;;
+    --no-backup)
+      no_backup=1
+      shift
       ;;
     -*)
       echo "error: unknown option: $1" >&2
@@ -61,7 +67,7 @@ install_local_file() {
   mode=$3
   label=$4
 
-  if [ -f "$dest" ]; then
+  if [ "$no_backup" -eq 0 ] && [ -f "$dest" ]; then
     backup_file="$dest.bak.$timestamp"
     cp "$dest" "$backup_file"
     echo "backed up $dest to $backup_file"
@@ -81,7 +87,7 @@ configure_local_zshrc() {
     return
   fi
 
-  if [ -f "$zshrc" ]; then
+  if [ "$no_backup" -eq 0 ] && [ -f "$zshrc" ]; then
     backup_file="$zshrc.bak.$timestamp"
     cp "$zshrc" "$backup_file"
     echo "backed up $zshrc to $backup_file"
@@ -117,6 +123,7 @@ scp "$source_conf" "$target:$remote_conf_tmp"
 scp "$helper_file" "$target:$remote_helper_tmp"
 
 ssh "$target" "set -eu
+  no_backup=$no_backup
   remote_conf=\"\$HOME/.tmux.conf\"
   remote_conf_tmp=\"\$HOME/$remote_conf_tmp\"
   remote_helper=\"\$HOME/.mosh-tmux.zsh\"
@@ -133,7 +140,7 @@ ssh "$target" "set -eu
     mode=\$3
     label=\$4
 
-    if [ -f \"\$dest\" ]; then
+    if [ \"\$no_backup\" -eq 0 ] && [ -f \"\$dest\" ]; then
       backup_file=\"\$dest.bak.$timestamp\"
       cp \"\$dest\" \"\$backup_file\"
       echo \"backed up \$dest to \$backup_file\"
@@ -153,7 +160,7 @@ ssh "$target" "set -eu
       return
     fi
 
-    if [ -f \"\$remote_zshrc\" ]; then
+    if [ \"\$no_backup\" -eq 0 ] && [ -f \"\$remote_zshrc\" ]; then
       backup_file=\"\$remote_zshrc.bak.$timestamp\"
       cp \"\$remote_zshrc\" \"\$backup_file\"
       echo \"backed up \$remote_zshrc to \$backup_file\"
