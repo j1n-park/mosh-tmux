@@ -5,7 +5,7 @@ Shareable tmux configuration and a `mosh-tmux` zsh helper.
 ## Requirements
 
 - `tmux` 3.2 or newer for the bundled status-line formatting.
-- `mosh` and `zsh` for the optional `mosh-tmux` helper.
+- `mosh` and `zsh` for the `mosh-tmux` helper.
 - `ssh`/`scp` when installing on a remote machine.
 
 ## Files
@@ -16,8 +16,14 @@ Shareable tmux configuration and a `mosh-tmux` zsh helper.
 ## Install locally
 
 ```sh
-./install.sh --helper
-printf '\n[ -f "$HOME/.mosh-tmux.zsh" ] && source "$HOME/.mosh-tmux.zsh"\n' >> ~/.zshrc
+./install.sh
+```
+
+The installer copies `.tmux.conf` and `mosh-tmux.zsh`, then adds this line to
+`~/.zshrc` if needed:
+
+```sh
+[ -f "$HOME/.mosh-tmux.zsh" ] && source "$HOME/.mosh-tmux.zsh"
 ```
 
 Reload zsh:
@@ -26,21 +32,15 @@ Reload zsh:
 source ~/.zshrc
 ```
 
-## Install tmux config on a remote machine
+## Install on a remote machine
 
 ```sh
 ./install.sh user@host
 ```
 
-The installer copies `.tmux.conf` over SSH and backs up any existing remote
-`~/.tmux.conf` to `~/.tmux.conf.bak.YYYYMMDD-HHMMSS`.
-
-If you also want the `mosh-tmux` helper on the remote machine:
-
-```sh
-./install.sh --helper user@host
-ssh user@host 'printf "\n[ -f \"\$HOME/.mosh-tmux.zsh\" ] && source \"\$HOME/.mosh-tmux.zsh\"\n" >> ~/.zshrc'
-```
+The installer copies `.tmux.conf` and `mosh-tmux.zsh` over SSH, backs up any
+existing remote files to `*.bak.YYYYMMDD-HHMMSS`, and configures remote
+`~/.zshrc` to source the helper.
 
 Use the default `main` session:
 

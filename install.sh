@@ -4,27 +4,20 @@ set -eu
 usage() {
   cat <<'EOF'
 usage:
-  ./install.sh [--helper]         Install .tmux.conf locally
-  ./install.sh [--helper] user@host
-                                  Install files on a remote machine over SSH
+  ./install.sh                    Install .tmux.conf and mosh-tmux.zsh locally
+  ./install.sh user@host          Install files on a remote machine over SSH
 
 options:
-  --helper                        Also install mosh-tmux.zsh
   -h, --help                      Show this help
 
 The installer backs up existing target files before replacing them.
 EOF
 }
 
-install_helper=false
 target=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --helper)
-      install_helper=true
-      shift
-      ;;
     -h|--help)
       usage
       exit 0
@@ -55,7 +48,7 @@ if [ ! -f "$source_conf" ]; then
   exit 1
 fi
 
-if [ "$install_helper" = "true" ] && [ ! -f "$helper_file" ]; then
+if [ ! -f "$helper_file" ]; then
   echo "error: missing $helper_file" >&2
   exit 1
 fi
@@ -79,12 +72,33 @@ install_local_file() {
   echo "installed $label locally"
 }
 
+configure_local_zshrc() {
+  zshrc="$HOME/.zshrc"
+  source_line='[ -f "$HOME/.mosh-tmux.zsh" ] && source "$HOME/.mosh-tmux.zsh"'
+
+  if [ -f "$zshrc" ] && grep -F -x -- "$source_line" "$zshrc" >/dev/null 2>&1; then
+    echo "~/.zshrc already sources mosh-tmux helper"
+    return
+  fi
+
+  if [ -f "$zshrc" ]; then
+    backup_file="$zshrc.bak.$timestamp"
+    cp "$zshrc" "$backup_file"
+    echo "backed up $zshrc to $backup_file"
+  fi
+
+  if [ -s "$zshrc" ]; then
+    printf '\n%s\n' "$source_line" >> "$zshrc"
+  else
+    printf '%s\n' "$source_line" >> "$zshrc"
+  fi
+  echo "configured ~/.zshrc to source mosh-tmux helper"
+}
+
 if [ -z "$target" ]; then
   install_local_file "$source_conf" "$HOME/.tmux.conf" 0644 ".tmux.conf"
-
-  if [ "$install_helper" = "true" ]; then
-    install_local_file "$helper_file" "$HOME/.mosh-tmux.zsh" 0644 "mosh-tmux helper"
-  fi
+  install_local_file "$helper_file" "$HOME/.mosh-tmux.zsh" 0644 "mosh-tmux helper"
+  configure_local_zshrc
 
   exit 0
 fi
@@ -100,12 +114,9 @@ remote_conf_tmp=".tmux.conf.mosh-tmux-install.$$.$timestamp"
 remote_helper_tmp=".mosh-tmux.zsh.mosh-tmux-install.$$.$timestamp"
 
 scp "$source_conf" "$target:$remote_conf_tmp"
-if [ "$install_helper" = "true" ]; then
-  scp "$helper_file" "$target:$remote_helper_tmp"
-fi
+scp "$helper_file" "$target:$remote_helper_tmp"
 
 ssh "$target" "set -eu
-  install_helper=\"$install_helper\"
   remote_conf=\"\$HOME/.tmux.conf\"
   remote_conf_tmp=\"\$HOME/$remote_conf_tmp\"
   remote_helper=\"\$HOME/.mosh-tmux.zsh\"
@@ -133,11 +144,32 @@ ssh "$target" "set -eu
     echo \"installed \$label remotely\"
   }
 
-  install_remote_file \"\$remote_conf_tmp\" \"\$remote_conf\" 0644 .tmux.conf
+  configure_remote_zshrc() {
+    remote_zshrc=\"\$HOME/.zshrc\"
+    source_line='[ -f \"\$HOME/.mosh-tmux.zsh\" ] && source \"\$HOME/.mosh-tmux.zsh\"'
 
-  if [ \"\$install_helper\" = \"true\" ]; then
-    install_remote_file \"\$remote_helper_tmp\" \"\$remote_helper\" 0644 \"mosh-tmux helper\"
-  fi
+    if [ -f \"\$remote_zshrc\" ] && grep -F -x -- \"\$source_line\" \"\$remote_zshrc\" >/dev/null 2>&1; then
+      echo \"~/.zshrc already sources mosh-tmux helper\"
+      return
+    fi
+
+    if [ -f \"\$remote_zshrc\" ]; then
+      backup_file=\"\$remote_zshrc.bak.$timestamp\"
+      cp \"\$remote_zshrc\" \"\$backup_file\"
+      echo \"backed up \$remote_zshrc to \$backup_file\"
+    fi
+
+    if [ -s \"\$remote_zshrc\" ]; then
+      printf '\\n%s\\n' \"\$source_line\" >> \"\$remote_zshrc\"
+    else
+      printf '%s\\n' \"\$source_line\" >> \"\$remote_zshrc\"
+    fi
+    echo \"configured ~/.zshrc to source mosh-tmux helper\"
+  }
+
+  install_remote_file \"\$remote_conf_tmp\" \"\$remote_conf\" 0644 .tmux.conf
+  install_remote_file \"\$remote_helper_tmp\" \"\$remote_helper\" 0644 \"mosh-tmux helper\"
+  configure_remote_zshrc
 
   if command -v tmux >/dev/null 2>&1 && [ -n \"\${TMUX:-}\" ]; then
     tmux source-file \"\$remote_conf\"

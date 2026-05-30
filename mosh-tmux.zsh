@@ -35,3 +35,14 @@ mosh-tmux() {
 
   command mosh --no-init "$target" -- tmux new-session -A -s "$session" "$@"
 }
+
+if [ -n "$TMUX" ]; then
+  tmux set-option -wq @last_command "shell"
+
+  preexec() {
+    local cmd="${1%% *}"
+    cmd="${cmd[1,24]}"
+    tmux set-option -wq @last_command "$cmd"
+  }
+fi
+
